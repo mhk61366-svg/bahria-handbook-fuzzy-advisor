@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+.vscode/
+dist/
+# University document: keep it local, do not publish it
+handbook/*.pdf
