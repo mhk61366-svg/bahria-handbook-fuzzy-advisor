@@ -100,9 +100,15 @@ def validate_credit_hours(raw: Any) -> float:
 
 def validate_scholarship_type(raw: Any) -> str:
     """Validate scholarship type to be a recognized key in config.SCHOLARSHIP_THRESHOLDS."""
-    if not isinstance(raw, str) or raw not in config.SCHOLARSHIP_THRESHOLDS:
+    if not isinstance(raw, str):
         allowed = ", ".join(repr(k) for k in config.SCHOLARSHIP_THRESHOLDS)
         raise InputError(
             f"Unknown scholarship type {raw!r}. Allowed types: {allowed}."
         )
-    return raw
+    val = raw.strip()
+    if val not in config.SCHOLARSHIP_THRESHOLDS:
+        allowed = ", ".join(repr(k) for k in config.SCHOLARSHIP_THRESHOLDS)
+        raise InputError(
+            f"Unknown scholarship type {raw!r}. Allowed types: {allowed}."
+        )
+    return val

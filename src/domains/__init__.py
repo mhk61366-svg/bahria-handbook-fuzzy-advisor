@@ -1,5 +1,7 @@
-"""Domain registry.
+"""Domain registry."""
+from src.domains import probation, scholarship
 
-Contents to write:
-  DOMAINS = {"probation": probation, "scholarship": scholarship}   # modules exposing the Domain interface
-"""
+DOMAINS = {
+    "probation": probation,
+    "scholarship": scholarship,
+}

@@ -7,4 +7,7 @@ __pycache__/
 dist/
 # University document: keep it local, do not publish it
 handbook/*.pdf
+*.pdf
+test_results.csv
+worked_examples.md
 AGENTS.md

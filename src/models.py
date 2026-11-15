@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-class RuleBaseNotReady(Exception):
+class RuleBaseNotReady(RuntimeError):
     """Raised when a domain rule base is empty or incomplete."""
 
 
