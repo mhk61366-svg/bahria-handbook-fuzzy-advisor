@@ -1,6 +1,6 @@
 # Design Document: Bahria Handbook Fuzzy Advisor
 
-**Status:** Draft v0.1. Parameters marked *(draft)* are finalised after rule extraction (Milestones M1 and M2).
+**Status:** Draft v0.2. Parameters marked *(draft)* are finalised once the hand-written rule base exists (Milestones M1 and M2).
 **Course:** Knowledge Representation & Reasoning, Assignment #2, Fall 2026
 **Source document:** Bahria University Student Handbook, Spring 2026
 **Page convention:** all page numbers are **printed** page numbers. PDF page = printed page + 10.
@@ -10,7 +10,8 @@
 ## 1. Purpose and scope
 
 Build a Mamdani fuzzy inference system (FIS) that answers common student questions using rules
-extracted from the handbook, with a desktop GUI, full rule traceability and a tested evaluation.
+extracted from the handbook, with a desktop GUI, a manually maintained rule traceability table
+and a tested evaluation.
 
 **In scope**
 - Domain A: probation and drop
@@ -22,6 +23,7 @@ extracted from the handbook, with a desktop GUI, full rule traceability and a te
 - Honours, medals and the Rector's list (§5.6-5.9). Possible extension only if time remains
 - Rank-based scholarship amounts (70/40/30%), financial-need assessment, Qarz-e-Hasna (discontinued)
 - Engineering programmes, MS/MPhil/PhD thresholds, final-semester extra-course exceptions
+- Automated handbook highlighting and loading rules from files (traceability is done by hand)
 - Web deployment
 
 ## 2. Core design principle: hybrid verdict plus fuzzy risk
@@ -63,7 +65,7 @@ graded risk output, which answers "am I in danger?" rather than "which side of t
 ### Domain B: Scholarship retention
 
 | Clause                  | Printed page | Threshold                                                        |
-|---                      |---           |---                                                               | 
+|---                      |---           |---                                                               |
 | §4.4.3.3                | 52           | Merit (batch topper): GPA ≥ 3.75 (non-engineering)               |
 | §4.3.2.2, §4.3.3.1.2(b) | 50-51        | Advance merit continuation: GPA/CGPA ≥ 3.50                      |
 | §4.5.2, §4.5.3(d)       | 53           | Financial assistance: GPA/CGPA ≥ 2.50, otherwise withheld        |
@@ -73,17 +75,37 @@ graded risk output, which answers "am I in danger?" rather than "which side of t
 
 ## 4. Architecture
 
+### 4.1 Repository layout
+
+```
+src/                       the package (imports look like: from src.config import ...)
+  __init__.py  __main__.py  config.py  models.py  validation.py  crisp_rules.py
+  variables.py  explain.py  advice.py  engine.py  plots.py
+  domains/  __init__.py  probation.py  scholarship.py      <- hand-written rules live here
+  gui/      __init__.py  app.py  panels.py
+data/test_queries.csv      evaluation queries
+tests/                     test files, added stage by stage (see section 11)
+tools/                     evaluate.py  make_examples.py
+screenshots/               GUI screenshots for the README
+README.md  DESIGN.md  AGENTS.md  LICENSE  pyproject.toml  requirements.txt  requirements-dev.txt  .gitignore
+```
+
+Generated at the repo root and git-ignored: `test_results.csv`, `worked_examples.md`. The assignment
+report, the highlighted handbook pages and the final single PDF are produced by hand and are not part of the code.
+
+### 4.2 Component flow
+
 ```mermaid
 flowchart LR
     GUI[Tkinter GUI] --> ENG[engine.FuzzyAdvisor]
-    TEST[tests / tools] --> ENG
+    TOOLS[tools / tests] --> ENG
     ENG --> VAL[validation]
     ENG --> CRISP[crisp_rules: official verdict]
-    ENG --> DOM[domains: fuzzy FIS]
+    ENG --> DOM[domains: fuzzy FIS + hand-written rules]
     DOM --> VAR[variables: MFs]
     ENG --> EXP[explain: fired rules]
+    EXP --> DOM
     ENG --> ADV[advice: wording]
-    EXP --> TRACE[(data/traceability.csv)]
     CFG[config.py] --> VAR
     CFG --> CRISP
 ```
@@ -93,7 +115,8 @@ Rules of the architecture:
 - `crisp_rules.py` imports nothing from scikit-fuzzy. It is the ground truth for tests.
 - All handbook numbers live in `config.py`, each with its clause.
 - `explain.py` is the only module allowed to read scikit-fuzzy's firing strengths.
-- `data/traceability.csv` is the single source of truth for rule text, source and highlight colour. The report table, GUI rule references and handbook highlighting are all generated from it.
+- The fuzzy rules are written **by hand** in `src/domains/*.py`. The system never reads the handbook or any rule file at run time.
+- Rule text shown in the GUI is generated from the rule objects. The handbook reference for each rule comes from a hand-written `RULE_REFS` dictionary in the same domain file.
 
 ## 5. Fuzzy model
 
@@ -118,6 +141,8 @@ Rules of the architecture:
 | `risk` | Output | A, B | 0 - 100 | low, moderate, high, critical |
 
 `scholarship_type` is **not** a fuzzy variable. It selects which crisp threshold anchors the CGPA terms.
+
+Variable names and term names above are a fixed vocabulary: the hand-written rules use these exact strings.
 
 ### 5.3 CGPA terms, anchored at the handbook threshold T *(draft)*
 
@@ -157,13 +182,21 @@ vocabulary is "below it", "at it", "above it". More terms would have no handbook
 Credit-load transition width of 3 equals one three-credit course. This is **Assumption A1**.
 Four risk levels map to four distinct pieces of advice: nothing, monitor, act now, imminent drop.
 
-## 6. Rule base outline *(draft: replaced by `data/traceability.csv`)*
+## 6. Rule base
+
+The rule base is **written by hand** in the human-owned block of each domain file
+(`src/domains/probation.py`, `src/domains/scholarship.py`). Each rule is a scikit-fuzzy rule with a unique
+label, for example `ctrl.Rule(cgpa["safe"], risk["low"], label="A1")`, plus an entry in `RULE_REFS` giving its
+handbook reference, for example `{"A1": "§5.5.1, p.71"}`. Rule IDs use `A` for probation and `B` for scholarship.
+
+The tables below are only a **draft outline** used to design and prototype the system. The final rule base is
+whatever is written in the domain files.
 
 Rule type **direct** means the handbook text states the condition. **derived** means the rule is the
-fuzzy extension of a direct rule into the transition zone. Derived rules must be labelled as such in
-the traceability table.
+fuzzy extension of a direct rule into the transition zone. The manual traceability table in the report labels
+each rule as one or the other (see section 13).
 
-### Domain A
+### Domain A (draft)
 
 | ID | IF | THEN risk | Type | Clause |
 |---|---|---|---|---|
@@ -174,7 +207,7 @@ the traceability table.
 | A5 | cgpa is below_min AND count is none | high | direct | §5.5.1 |
 | A6 | cgpa is below_min AND (count is first OR second) | critical | direct | §5.5.3, §5.5.5 |
 
-### Domain B (with `cgpa` anchored at the chosen scholarship threshold)
+### Domain B (draft, with `cgpa` anchored at the chosen scholarship threshold)
 
 | ID | IF | THEN risk | Type | Clause |
 |---|---|---|---|---|
@@ -184,12 +217,15 @@ the traceability table.
 | B4 | cgpa is safe AND load is under_load | moderate | direct | §4.4.3.5, §4.12(b) |
 | B5 | cgpa is borderline AND load is under_load | high | derived | §4.4.3.5, §4.11 |
 
+Domain B rules are the same for all three scholarship types. Only the CGPA anchor T changes.
+
 ## 7. Boundary handling
 
 Official verdict rule: **a value exactly equal to the threshold meets the requirement** (`>=`).
-Example for T = 2.00, probation count 0:
+Illustration for T = 2.00, probation count 0, using the **draft** rule set from section 6
+(values with the final hand-written rules come from the evaluation run):
 
-| CGPA | Official verdict | Fuzzy risk |
+| CGPA | Official verdict | Fuzzy risk (draft rules) |
 |---|---|---|
 | 1.67 or lower | Probation (§5.5.1) | high |
 | 1.99 | Probation (§5.5.1) | moderate (97% borderline) |
@@ -202,17 +238,17 @@ but the fuzzy risk is only "moderate", because 1.99 and 2.00 are nearly identica
 advice text resolves this by always leading with the official verdict:
 *"Official status: ON PROBATION. Fuzzy risk: moderate, you are just under the line."*
 
-**Invariants tested automatically**
+**Invariants checked by the stage tests**
 - **I1:** the official verdict always equals `crisp_rules` output
 - **I2:** the risk **label** never becomes less severe as CGPA falls (other inputs fixed). Checked at band level, not on the raw score
 - **I3:** if the verdict is worse than good standing / eligible, the risk label is at least moderate
 
-**Finding from the prototype (use in the failure analysis):** the raw score is not strictly monotonic
-for probation count 2. Between CGPA 1.90 and 2.00 it rises from about 87.4 to 89.0 while the label stays
-"critical". Cause: rules A4 and A6 both output "critical", and as `borderline` grows the clipped
-"critical" shape gets taller, which pulls the centroid toward its peak. This is a known property of
-centroid defuzzification with overlapping same-term rules, so I2 is tested on labels. Counts 0 and 1
-were strictly non-increasing in the same test.
+**Finding from the prototype with the draft rules (use in the failure analysis):** the raw score is not
+strictly monotonic for probation count 2. Between CGPA 1.90 and 2.00 it rises from about 87.4 to 89.0 while
+the label stays "critical". Cause: rules A4 and A6 both output "critical", and as `borderline` grows the
+clipped "critical" shape gets taller, which pulls the centroid toward its peak. This is a known property of
+centroid defuzzification with overlapping same-term rules, so I2 is checked on labels. Counts 0 and 1
+were strictly non-increasing in the same test. Re-check this against the final rule base.
 
 The `risk_label` is the output term with the highest membership at the crisp score; ties go to the more severe term.
 
@@ -232,8 +268,9 @@ clamped or guessed**.
 
 - Each scikit-fuzzy `Rule` is created with `label=<rule_id>`.
 - After `compute()`, `explain.fired_rules()` reads `rule.aggregate_firing[sim]`, keeps strengths above 0 and sorts descending.
+- Rule text is generated from the rule object (`rule.antecedent`, `rule.consequent`). The handbook reference comes from `RULE_REFS`.
 - `rule.aggregate_firing` is not documented public API. It works on scikit-fuzzy 0.5.0 (verified), so the version is pinned and the access is isolated in one function.
-- A second, independent implementation (`independent_strengths`, min/max over `interp_membership`) is used as a test oracle and as a fallback.
+- A second, independent implementation (`independent_strengths`, min/max over `interp_membership`) is used as a test oracle and as a fallback. It walks the rule's antecedent tree: `Term` leaves, and `TermAggregate` nodes whose `kind` is `and` or `or` (min / max).
 
 ## 10. GUI design (Tkinter, desktop only)
 
@@ -246,6 +283,14 @@ clamped or guessed**.
 
 ## 11. Testing and evaluation
 
+### 11.1 Stage tests
+
+Tests are written **after each build stage**, on request, and supplied separately. They go in `tests/`, one file per
+stage. The coding agent does not write or edit them. A stage is accepted only when its tests pass and the observations
+have been reviewed.
+
+### 11.2 Evaluation set
+
 `data/test_queries.csv`, minimum 32 rows:
 
 | Category | Count | Examples |
@@ -254,9 +299,10 @@ clamped or guessed**.
 | Boundary | 12 | 1.99/2.00/2.01, 2.49/2.50/2.51, 3.49/3.50/3.51, 3.74/3.75/3.76, credit hours 8/9/18/19, CGPA 0.00 and 4.00 |
 | Invalid | 8 | out-of-range, non-numeric, empty, unknown type |
 
-- **Expected answer** = the handbook verdict (exact) and a risk band (design-derived, flagged as such).
+- **Expected answer** = the handbook verdict (exact, derived without running the fuzzy engine) and a risk band (design-derived, chosen before the first run and flagged as such).
 - **Pass** = verdict matches AND risk band matches. Invalid rows pass only if the engine raises the expected error.
-- Property tests (I1-I3) run in `pytest`; `tools/evaluate.py` produces the pass/fail table, total count and accuracy for the report.
+- `tools/evaluate.py` runs the set and writes `test_results.csv` (git-ignored) with the pass/fail table, total count and accuracy for the report. Failures in this evaluation are **findings**, not errors to be hidden: expectations are never edited to make a row pass.
+- `tools/make_examples.py` writes `worked_examples.md` with 10 or more worked examples (inputs, fired rules with strengths, output, interpretation).
 - A 100% score is not the goal. Cases are chosen to expose weaknesses, and every failure gets a cause and an improvement in the report.
 
 ## 12. Assumptions and open decisions
@@ -267,33 +313,35 @@ clamped or guessed**.
 | A2 | Non-engineering undergraduate programmes only (3.75 merit threshold; engineering uses 3.60) | Narrows scope |
 | A3 | Fuzzy transition half-width = 0.33, one grade step | Width has no handbook ground truth; justified, not proven |
 | A4 | CGPA input stands for GPA in a student's first semester (§5.5.1 wording) | Documented, not modelled separately |
+| A5 | Term and variable names in section 5.2 are fixed; changing one means changing the code and the hand-written rules | Keeps rule files and `variables.py` consistent |
 
 **Handbook inconsistencies found (use in the report):**
 - §5.5.4 refers to "clause 7.10.1", which does not exist (probably §5.5.1)
 - The grade table in §1.18.1 uses ">" while §5.3.1 uses "≥" for the same bands
 - Baseline honours CGPA (3.60, §5.6.3) differs from the merit scholarship threshold (3.75, §4.4.3.3)
 
-## 13. Traceability and highlighting workflow
+## 13. Traceability (manual)
 
-1. Copy each source passage's anchor text from the handbook text layer (the PDF has OCR spacing artefacts such as "f ollowing", so copy from extracted text, not by eye).
-2. Fill `data/traceability.csv`: `rule_id, domain, rule_type, section, printed_page, pdf_page, original_text, fuzzy_rule, color_hex, highlight_anchor`.
-3. One colour per rule from `config.RULE_COLORS`.
-4. `tools/highlight_handbook.py` writes `report/handbook_highlighted.pdf` using the same colours.
-5. The same colour is applied to the rule row in the report.
+Traceability is done by hand for the report, with no script and no data file:
+
+1. For each hand-written rule, copy its source passage from the handbook.
+2. Build the report table with columns: rule ID, handbook section and page, original text, fuzzy rule, rule type (direct or derived).
+3. Highlight each source passage in the handbook PDF and the matching rule row in the report with the same colour, one colour per rule.
+4. The `RULE_REFS` dictionary in the code uses the same section and page as the table, so code, GUI and report agree.
 
 ## 14. Milestones and cut line
 
-| # | Milestone | Priority |
-|---|---|---|
-| M0 | Repo scaffold and this document | done |
-| M1 | Rule extraction: `traceability.csv` complete, handbook highlighted | P0 |
-| M2 | Engine: variables, crisp rules, domains, explain, with unit tests | P0 |
-| M3 | Tkinter GUI | P0 |
-| M4 | Test set, evaluation run, 10+ worked examples | P0 |
-| M5 | Report and single-PDF assembly | P0 |
-| M6 | Polish: README screenshots, GUI recording | P1 |
+| # | Milestone | Owner | Priority |
+|---|---|---|---|
+| M0 | Repo scaffold and this document | done | |
+| M1 | Rule base written by hand in the domain files; manual traceability table and highlighted pages | Human | P0 |
+| M2 | Foundation and engine: variables, crisp rules, domains, explain, advice, engine | Agent | P0 |
+| M3 | Plots and Tkinter GUI | Agent | P0 |
+| M4 | Evaluation set, evaluation run, 10+ worked examples | Agent (human reviews) | P0 |
+| M5 | Report and single-PDF assembly | Human | P0 |
+| M6 | Polish: README screenshots, GUI recording | Human | P1 |
 
-**Rough effort (estimated):** about 21-25 hours in total.
+Each agent milestone ends at a gate where work stops for review and stage tests.
 
 **If time runs short, cut in this order:**
 1. Output-surface plot
