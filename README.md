@@ -1,37 +1,49 @@
 # Bahria Handbook Fuzzy Advisor
 
 A Mamdani fuzzy inference system that answers student questions about **academic probation/drop**
-and **scholarship retention**, using rules extracted from the Bahria University Student Handbook
-(Spring 2026). Every rule is traceable to a handbook section and page.
+(Domain A) and **scholarship retention** (Domain B), using rules extracted from the Bahria University
+Student Handbook (Spring 2026). Every rule is traceable to a handbook section and page.
 
-<!-- TODO: add a screenshot or short GIF of the Tkinter GUI: docs/screenshots/gui.png -->
+![GUI Screenshot](screenshots/gui.png)
 
 ## Features
 - Official handbook verdict (crisp) plus a graded fuzzy risk score and advice
-- Fired rules shown with firing strengths and handbook references
-- Membership-function and output-surface plots
-- Automated evaluation on a 30+ query test set (normal, boundary, invalid inputs)
+- Traceable fired rules shown with firing strengths and handbook section references
+- Visual membership-function and 3D output-surface plots
+- Automated evaluation runner and worked example generator
 
 ## Quick start
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python -m fuzzy_handbook          # launches the desktop GUI
+python -m src                       # launches the desktop GUI
 ```
 
-## Run the tests
+## Run the tests & evaluation
 ```bash
 pip install -r requirements-dev.txt
-pytest
-python tools/evaluate.py          # writes report/test_results.csv and prints accuracy
+pytest                              # runs stage test suites
+python tools/evaluate.py            # runs data/test_queries.csv -> writes test_results.csv
+python tools/make_examples.py       # generates worked_examples.md
 ```
 
 ## Documentation
-Design, rationale, rule base and boundary handling: see [DESIGN.md](DESIGN.md).
+Design rationale, membership functions, rule matrices, and boundary analysis: see [DESIGN.md](DESIGN.md).
 
 ## Results
-<!-- TODO: fill in after evaluation: total queries, accuracy, known failures -->
+Automated evaluation on `data/test_queries.csv` (`python tools/evaluate.py`):
+- **Total queries**: 46 (12 normal, 26 boundary, 8 invalid)
+- **Passed**: 41
+- **Accuracy**: 89.1%
+- **Known failures (5 / 46)**:
+  - `Q07`: CGPA 3.90, merit batch topper, 15 cr hrs -> Expected: `(ELIGIBLE, low)`, Actual: `(ELIGIBLE, moderate)`.
+  - `Q09`: CGPA 3.65, advance merit continuation, 16 cr hrs -> Expected: `(ELIGIBLE, low)`, Actual: `(ELIGIBLE, moderate)`.
+  - `Q34`: CGPA 3.85, merit batch topper, 9.0 cr hrs -> Expected: `(ELIGIBLE, low)`, Actual: `(ELIGIBLE, moderate)`.
+  - `Q35`: CGPA 3.85, merit batch topper, 8.0 cr hrs -> Expected: `(ELIGIBLE, high)`, Actual: `(ELIGIBLE, moderate)`.
+  - `Q36`: CGPA 3.85, merit batch topper, 18.0 cr hrs -> Expected: `(ELIGIBLE, low)`, Actual: `(ELIGIBLE, moderate)`.
+
+All official crisp verdicts pass with 100% accuracy. The 5 differences in linguistic risk band occur in Domain B (scholarship retention), reflecting human-owned rule design and centroid defuzzification characteristics in tight threshold zones (e.g. merit threshold 3.75 where safe span is truncated to [3.75, 4.00]).
 
 ## Disclaimer
 Educational project. Not an official Bahria University tool. The handbook is the only authority

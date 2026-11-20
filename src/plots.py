@@ -5,7 +5,6 @@ Always returns matplotlib.figure.Figure instances; never uses pyplot state.
 from typing import Any
 import numpy as np
 from matplotlib.figure import Figure
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (needed for 3D projection)
 import skfuzzy.control as ctrl
 
 from src import config

@@ -1,4 +1,4 @@
-"""`python -m fuzzy_handbook` launches the Tkinter GUI."""
+"""`python -m src` launches the Tkinter GUI."""
 from src.gui.app import main
 
 if __name__ == "__main__":
